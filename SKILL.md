@@ -55,9 +55,12 @@ or commit it.
 ## Agent runtime loop (every task that needs an email)
 
 Use the bundled helper `scripts/inbox.sh` (it loads the key from
-`~/.config/disposable-inbox/key.env` or `$INBOX_API_KEY`):
+`~/.config/disposable-inbox/key.env` or `$INBOX_API_KEY`). Set `AGENT_NAME` so your
+mailboxes are attributed to you in the dashboard — the API **requires** it on create:
 
 ```bash
+export AGENT_NAME="my-signup-bot"   # 1–80 chars; identifies the creating agent
+
 # 1. Create a mailbox (random local part). Captures the id + address.
 eval "$(scripts/inbox.sh new)"      # sets MAILBOX_ID and MAILBOX_ADDR
 echo "$MAILBOX_ADDR"                 # use this address in your signup/test flow
@@ -81,9 +84,10 @@ body + verification candidates), `custom <localpart> [ttlMinutes]`, `keep <id>`
 BASE=https://tpc-disposable-inbox-api.the-portland-company.workers.dev
 KEY=$INBOX_API_KEY
 
-# create
+# create (agentName is REQUIRED, 1–80 chars)
 curl -s -X POST "$BASE/v1/mailboxes" -H "X-API-Key: $KEY" \
-  -H 'content-type: application/json' -d '{"mode":"random","ttlMinutes":60}'
+  -H 'content-type: application/json' \
+  -d '{"mode":"random","agentName":"my-signup-bot","ttlMinutes":60}'
 # wait (returns 204 if nothing arrived in the window)
 curl -s "$BASE/v1/mailboxes/<id>/wait?timeoutSeconds=30" -H "X-API-Key: $KEY"
 # grab the extracted code/link
@@ -94,6 +98,9 @@ curl -s "$BASE/v1/mailboxes/<id>/latest-verification" -H "X-API-Key: $KEY"
 
 ## Conventions & limits
 
+- **Agent name (required):** every create needs `"agentName": "<you>"` (1–80 chars).
+  It is shown in the dashboard next to the mailbox with the exact creation time, so
+  mailboxes can be traced to the agent that made them.
 - **Custom addresses:** `{"mode":"custom","localPart":"my-alias"}` — 3–40 chars,
   `[a-z0-9._-]`. If the address is held by another active account you get **409**;
   if it was yours/expired it is recycled. The domain is fixed (catch-all).
