@@ -34,7 +34,10 @@ mailbox creation is gated behind a confirmed email identity.
 1. Register an account at https://temporary-inboxes.theportlandcompany.com/auth/register
    and confirm the email (mailbox + API-key creation are blocked until confirmed).
 2. Sign in, open the dashboard, and create a **scoped API key** (the key icon in the
-   top toolbar). Copy the secret — it is shown only once.
+   top toolbar). The **name you give the key is the agent name** — it is stamped onto
+   every mailbox the key creates and shown in the dashboard (you can't override it per
+   request, so it's trustworthy). Name the key per agent for distinct attribution.
+   Copy the secret — it is shown only once.
 3. Store the secret where your agents can read it, **outside any git repo**, e.g.:
 
    ```bash
@@ -55,12 +58,10 @@ or commit it.
 ## Agent runtime loop (every task that needs an email)
 
 Use the bundled helper `scripts/inbox.sh` (it loads the key from
-`~/.config/disposable-inbox/key.env` or `$INBOX_API_KEY`). Set `AGENT_NAME` so your
-mailboxes are attributed to you in the dashboard — the API **requires** it on create:
+`~/.config/disposable-inbox/key.env` or `$INBOX_API_KEY`). Mailboxes are attributed
+to your API key's name automatically — nothing to set per call:
 
 ```bash
-export AGENT_NAME="my-signup-bot"   # 1–80 chars; identifies the creating agent
-
 # 1. Create a mailbox (random local part). Captures the id + address.
 eval "$(scripts/inbox.sh new)"      # sets MAILBOX_ID and MAILBOX_ADDR
 echo "$MAILBOX_ADDR"                 # use this address in your signup/test flow
@@ -84,10 +85,10 @@ body + verification candidates), `custom <localpart> [ttlMinutes]`, `keep <id>`
 BASE=https://tpc-disposable-inbox-api.the-portland-company.workers.dev
 KEY=$INBOX_API_KEY
 
-# create (agentName is REQUIRED, 1–80 chars)
+# create (agent name comes from the key label, no need to send it)
 curl -s -X POST "$BASE/v1/mailboxes" -H "X-API-Key: $KEY" \
   -H 'content-type: application/json' \
-  -d '{"mode":"random","agentName":"my-signup-bot","ttlMinutes":60}'
+  -d '{"mode":"random","ttlMinutes":60}'
 # wait (returns 204 if nothing arrived in the window)
 curl -s "$BASE/v1/mailboxes/<id>/wait?timeoutSeconds=30" -H "X-API-Key: $KEY"
 # grab the extracted code/link
@@ -98,9 +99,9 @@ curl -s "$BASE/v1/mailboxes/<id>/latest-verification" -H "X-API-Key: $KEY"
 
 ## Conventions & limits
 
-- **Agent name (required):** every create needs `"agentName": "<you>"` (1–80 chars).
-  It is shown in the dashboard next to the mailbox with the exact creation time, so
-  mailboxes can be traced to the agent that made them.
+- **Agent name (automatic):** the creating agent shown in the dashboard (with the
+  exact creation time) is your **API key's label** — stamped server-side, so it's
+  trustworthy and can't be spoofed in the request body. Set it by naming the key.
 - **Custom addresses:** `{"mode":"custom","localPart":"my-alias"}` — 3–40 chars,
   `[a-z0-9._-]`. If the address is held by another active account you get **409**;
   if it was yours/expired it is recycled. The domain is fixed (catch-all).
